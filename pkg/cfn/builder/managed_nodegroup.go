@@ -76,9 +76,26 @@ func (m *ManagedNodeGroupResourceSet) AddAllResources(ctx context.Context) error
 		nodeRole = gfnt.NewString(NormalizeARN(m.nodeGroup.IAM.InstanceRoleARN))
 	}
 
-	subnets, err := AssignSubnets(ctx, m.nodeGroup, m.clusterConfig, m.ec2API)
-	if err != nil {
-		return err
+	var subnets *gfnt.Value
+	if m.vpcImporter != nil && shouldImportSubnetsFromVPC(m.nodeGroup, m.clusterConfig) {
+		if m.nodeGroup.PrivateNetworking {
+			subnets = m.vpcImporter.SubnetsPrivate()
+		} else {
+			subnets = m.vpcImporter.SubnetsPublic()
+		}
+		if subnets == nil {
+			var err error
+			subnets, err = AssignSubnets(ctx, m.nodeGroup, m.clusterConfig, m.ec2API)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		var err error
+		subnets, err = AssignSubnets(ctx, m.nodeGroup, m.clusterConfig, m.ec2API)
+		if err != nil {
+			return err
+		}
 	}
 
 	scalingConfig := gfneks.Nodegroup_ScalingConfig{}
